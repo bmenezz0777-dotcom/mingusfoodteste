@@ -1,20 +1,26 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import {getAuth,signInAnonymously,signInWithEmailAndPassword,signOut,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
-import {getFirestore,collection,doc,setDoc,deleteDoc,getDoc,getDocs,onSnapshot,query,where,writeBatch} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import {getAuth,setPersistence,browserLocalPersistence,signInAnonymously,signInWithEmailAndPassword,signOut,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,updateDoc,deleteDoc,getDoc,getDocFromServer,getDocs,onSnapshot,orderBy,query,writeBatch,waitForPendingWrites} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
 const firebaseConfig={apiKey:'AIzaSyBw0mc9z57cvG3ieJWBwUTjJj4FdR7PWxw',authDomain:'mingosfood-b0ef0.firebaseapp.com',projectId:'mingosfood-b0ef0',storageBucket:'mingosfood-b0ef0.firebasestorage.app',messagingSenderId:'927616413219',appId:'1:927616413219:web:6bf3ff605b733288fa0b96'};
-const ADMIN_UID='HyAvEp5TLfh414rAykVQTwxWjrS2',app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
-const authReady=new Promise(resolve=>onAuthStateChanged(auth,resolve));
+const ADMIN_UID='HyAvEp5TLfh414rAykVQTwxWjrS2';
+const app=initializeApp(firebaseConfig),auth=getAuth(app);
+const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true,localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const clean=value=>JSON.parse(JSON.stringify(value));
-async function anonymousUser(){let user=await authReady;if(!user)user=(await signInAnonymously(auth)).user;return user}
-async function adminLogin(email,password){const result=await signInWithEmailAndPassword(auth,email,password);if(result.user.uid!==ADMIN_UID){await signOut(auth);throw new Error('Esta conta não possui acesso administrativo.')}return result.user}
-async function createOrder(order){const user=await anonymousUser(),payload=clean({...order,ownerUid:user.uid,updatedAt:new Date().toISOString()});await setDoc(doc(db,'orders',String(order.id)),payload);return payload}
-function watchOrder(id,callback,error){return onSnapshot(doc(db,'orders',String(id)),snapshot=>{if(snapshot.exists())callback({id:snapshot.id,...snapshot.data()})},error)}
-function watchOrders(callback,error){return onSnapshot(collection(db,'orders'),snapshot=>callback(snapshot.docs.map(item=>({id:item.id,...item.data()})).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))),error)}
-async function updateOrderStatus(id,status){const ref=doc(db,'orders',String(id)),snapshot=await getDoc(ref);if(!snapshot.exists())throw new Error('Pedido não encontrado.');const updated={...snapshot.data(),status,updatedAt:new Date().toISOString()};await setDoc(ref,clean(updated));return{id:String(id),...updated}}
-function watchCollection(name,callback,error){return onSnapshot(collection(db,name),snapshot=>callback(snapshot.docs.map(item=>({id:item.id,...item.data()}))),error)}
-async function saveDocument(group,id,data){await setDoc(doc(db,group,String(id)),clean(data));return data}
-async function removeDocument(group,id){await deleteDoc(doc(db,group,String(id)))}
-async function clearOrders(){const snapshot=await getDocs(collection(db,'orders')),batch=writeBatch(db);snapshot.forEach(item=>batch.delete(item.ref));await batch.commit()}
-window.MingosFirebase={ADMIN_UID,auth,db,anonymousUser,adminLogin,signOut:()=>signOut(auth),createOrder,watchOrder,watchOrders,updateOrderStatus,watchCollection,saveDocument,removeDocument,clearOrders};
-window.dispatchEvent(new CustomEvent('mingos:firebase-ready'));
+const status=(state,detail='')=>window.dispatchEvent(new CustomEvent('mingos:backend-status',{detail:{state,detail}}));
+
+await setPersistence(auth,browserLocalPersistence);
+function currentAuth(){if(auth.currentUser)return Promise.resolve(auth.currentUser);return new Promise(resolve=>{const stop=onAuthStateChanged(auth,user=>{stop();resolve(user)})})}
+async function anonymousUser(){const current=await currentAuth();if(current)return current;status('connecting','Autenticando cliente');const user=(await signInAnonymously(auth)).user;status('online','Cliente conectado');return user}
+async function adminLogin(email,password){status('connecting','Validando administrador');const result=await signInWithEmailAndPassword(auth,email,password);if(result.user.uid!==ADMIN_UID){await signOut(auth);throw Object.assign(new Error('Conta sem permissão administrativa.'),{code:'mingos/not-admin'})}status('online','Painel conectado');return result.user}
+async function createOrder(order){const user=await anonymousUser(),id=String(order.id),payload=clean({...order,id,ownerUid:user.uid,status:'received',createdAt:order.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),schemaVersion:1});status('saving','Enviando pedido');const ref=doc(db,'orders',id);await setDoc(ref,payload);await waitForPendingWrites(db);const confirmed=await getDocFromServer(ref);if(!confirmed.exists())throw Object.assign(new Error('O pedido não foi confirmado pelo servidor.'),{code:'mingos/not-confirmed'});status('online','Pedido confirmado');return{id:confirmed.id,...confirmed.data()}}
+function watchOrder(id,callback,error=console.error){return onSnapshot(doc(db,'orders',String(id)),{includeMetadataChanges:true},snapshot=>{if(snapshot.exists()&&!snapshot.metadata.hasPendingWrites){status('online','Pedido sincronizado');callback({id:snapshot.id,...snapshot.data()})}},cause=>{status('error',cause.code||cause.message);error(cause)})}
+function watchOrders(callback,error=console.error){return onSnapshot(query(collection(db,'orders'),orderBy('createdAt','desc')),{includeMetadataChanges:true},snapshot=>{status(snapshot.metadata.fromCache?'offline':'online',snapshot.metadata.fromCache?'Exibindo dados em cache':'Pedidos sincronizados');callback(snapshot.docs.map(item=>({id:item.id,...item.data()})))},cause=>{status('error',cause.code||cause.message);error(cause)})}
+async function updateOrderStatus(id,nextStatus){if(!['received','preparing','delivering','completed'].includes(nextStatus))throw new Error('Status inválido.');const ref=doc(db,'orders',String(id)),before=await getDoc(ref);if(!before.exists())throw new Error('Pedido não encontrado.');await updateDoc(ref,{status:nextStatus,updatedAt:new Date().toISOString()});await waitForPendingWrites(db);return{id:String(id),...before.data(),status:nextStatus,updatedAt:new Date().toISOString()}}
+function watchCollection(name,callback,error=console.error){return onSnapshot(collection(db,name),{includeMetadataChanges:true},snapshot=>callback(snapshot.docs.map(item=>({id:item.id,...item.data()}))),error)}
+async function saveDocument(group,id,data){await setDoc(doc(db,group,String(id)),clean(data));await waitForPendingWrites(db);return data}
+async function removeDocument(group,id){await deleteDoc(doc(db,group,String(id)));await waitForPendingWrites(db)}
+async function clearOrders(){const snapshot=await getDocs(collection(db,'orders'));for(let offset=0;offset<snapshot.docs.length;offset+=450){const batch=writeBatch(db);snapshot.docs.slice(offset,offset+450).forEach(item=>batch.delete(item.ref));await batch.commit()}}
+function friendlyError(error){const messages={'auth/invalid-credential':'E-mail ou senha incorretos.','auth/operation-not-allowed':'Ative o método de autenticação no Firebase.','auth/unauthorized-domain':'O domínio do GitHub Pages não está autorizado no Firebase.','permission-denied':'As regras do Firestore bloquearam esta operação.','firestore/permission-denied':'As regras do Firestore bloquearam esta operação.','unavailable':'O Firebase está temporariamente indisponível.','mingos/not-confirmed':'O servidor não confirmou o pedido.'};return messages[error?.code]||messages[String(error?.code||'').replace(/^firestore\//,'')]||error?.message||'Falha de conexão com o Firebase.'}
+window.MingosFirebase={ADMIN_UID,auth,db,anonymousUser,adminLogin,signOut:()=>signOut(auth),createOrder,watchOrder,watchOrders,updateOrderStatus,watchCollection,saveDocument,removeDocument,clearOrders,friendlyError};
+status('ready','Firebase carregado');window.dispatchEvent(new CustomEvent('mingos:firebase-ready'));
