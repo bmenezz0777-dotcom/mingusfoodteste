@@ -24,13 +24,21 @@ Abra `index.html` no navegador. O painel administrativo permanece disponível em
 - Upsell inteligente de bebidas antes do checkout.
 - Envio do pedido formatado para o WhatsApp `5545991375964`.
 - Confetes na conclusão antes da abertura do WhatsApp.
-- Preenchimento automático de endereço pela API oficial ViaCEP.
+- Endereço simplificado por bairro, rua, número e cidade, sem CEP.
 - Repetição do último pedido salvo em `ultimoPedido`.
-- Vídeo em looping com poster, parallax e cards carro-chefe com tilt 3D.
+- Carrossel de produtos, parallax e cards carro-chefe com tilt 3D.
 - Micro-sons gerados no navegador com controle para silenciar.
 - Atividade baseada em pedidos locais reais ou dicas claramente identificadas.
 - Login demonstrativo e acompanhamento do último pedido.
 - Skeleton de carregamento, toasts temporizados, sincronização entre abas e galeria social.
 - Microinterações, ripple, animações de entrada e suporte a movimento reduzido.
 
-Os produtos e pedidos continuam compartilhados com o painel pelo LocalStorage do navegador.
+Produtos, pedidos, funcionamento, bairros, taxas, promoções e histórico são sincronizados pelo Firebase. O LocalStorage serve somente como cache e recuperação local.
+
+## Operação
+
+- Produtos podem ser pausados ou reativados pelo painel.
+- Fotos podem ser enviadas diretamente pelo administrador ao Firebase Storage.
+- Horários, pedido mínimo, prazos, bairros e taxas são configuráveis.
+- O checkout valida disponibilidade, funcionamento, endereço, pagamento e conexão.
+- O painel mostra ticket médio, entrega versus retirada, horários de pico e histórico de caixa.
