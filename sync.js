@@ -8,9 +8,14 @@
   function saveOrdersLocal(orders){writeLocal(ORDER_KEY,orders);emit(ORDER_KEY,orders)}
   function findOrder(id){return read(ORDER_KEY).find(order=>String(order.id)===String(id))||null}
   async function createOrder(order){const firebase=await waitFirebase();let saved;try{saved=await firebase.createOrder(order)}catch(error){error.friendlyMessage=firebase.friendlyError(error);throw error}const orders=read(ORDER_KEY,[]).filter(item=>item.id!==saved.id);saveOrdersLocal([saved,...orders]);writeLocal(LAST_KEY,saved);return saved}
-  async function updateStatus(id,status){const firebase=await waitFirebase(),updated=await firebase.updateOrderStatus(id,status),orders=read(ORDER_KEY,[]).map(order=>order.id===id?updated:order);saveOrdersLocal(orders);const last=read(LAST_KEY,null);if(last?.id===id)writeLocal(LAST_KEY,updated);return updated}
+  async function updateStatus(id,status,extra={}){const firebase=await waitFirebase(),updated=await firebase.updateOrderStatus(id,status,extra),orders=read(ORDER_KEY,[]).map(order=>order.id===id?updated:order);saveOrdersLocal(orders);const last=read(LAST_KEY,null);if(last?.id===id)writeLocal(LAST_KEY,updated);return updated}
   async function watchOrder(id,callback){const firebase=await waitFirebase();return firebase.watchOrder(id,order=>{const orders=read(ORDER_KEY,[]).filter(item=>item.id!==order.id);saveOrdersLocal([order,...orders]);writeLocal(LAST_KEY,order);callback(order)},error=>console.error('Mingos tracking:',error))}
   async function adminLogin(email,password){return(await waitFirebase()).adminLogin(email,password)}
   async function watchAdminOrders(callback,onError=console.error){const firebase=await waitFirebase();return firebase.watchOrders(orders=>{saveOrdersLocal(orders);callback(orders)},error=>onError(Object.assign(error,{friendlyMessage:firebase.friendlyError(error)})))}
-  window.MingosSync={ORDER_KEY,LAST_KEY,read,waitFirebase,createOrder,updateStatus,watchOrder,adminLogin,watchAdminOrders,findOrder,saveOrders:saveOrdersLocal};
+  async function signup(data){return(await waitFirebase()).customerSignup(data)}
+  async function customerLogin(email,password){return(await waitFirebase()).customerLogin(email,password)}
+  async function resetPassword(email){return(await waitFirebase()).resetPassword(email)}
+  async function watchMessages(orderId,callback){return(await waitFirebase()).watchMessages(orderId,callback)}
+  async function sendMessage(orderId,text,role){return(await waitFirebase()).sendMessage(orderId,text,role)}
+  window.MingosSync={ORDER_KEY,LAST_KEY,read,waitFirebase,createOrder,updateStatus,watchOrder,adminLogin,signup,customerLogin,resetPassword,watchMessages,sendMessage,watchAdminOrders,findOrder,saveOrders:saveOrdersLocal};
 })();

@@ -42,3 +42,29 @@ Produtos, pedidos, funcionamento, bairros, taxas, promoções e histórico são 
 - Horários, pedido mínimo, prazos, bairros e taxas são configuráveis.
 - O checkout valida disponibilidade, funcionamento, endereço, pagamento e conexão.
 - O painel mostra ticket médio, entrega versus retirada, horários de pico e histórico de caixa.
+
+## Mingos 4.0
+
+- Cadastro e login reais com Firebase Authentication.
+- Conta criada a partir da sessão anônima sem perder o pedido.
+- Pedido entra como `pending_acceptance` e precisa ser aceito pela cozinha.
+- Admin informa a previsão antes de aceitar ou pode recusar com motivo.
+- Acompanhamento com seis etapas, cancelamento antes do aceite e confirmação de entrega.
+- Chat em tempo real vinculado ao pedido para cliente e administração.
+- Pedidos são validados pelas regras do Firestore e protegidos por usuário autenticado.
+- Cabeçalho reorganizado e navegação inferior mobile.
+- Montagem de açaí aparece uma única vez no catálogo e a adição não interrompe a compra.
+
+Toda a solução funciona no plano gratuito Spark, sem Cloud Functions e sem necessidade de cadastrar faturamento.
+
+## Controles gratuitos da operação
+
+- Loja aberta, fechada ou cozinha pausada.
+- Tele-entrega e retirada controladas separadamente.
+- Pix, cartão e dinheiro ativados individualmente.
+- Modos de troco normal, valor exato, sem R$ 100 ou sem R$ 200.
+- Movimento tranquilo, normal ou intenso com prazos publicados.
+- Prazo de dez minutos para aceite, aplicado pela tela conectada do cliente.
+- Clube Mingos com nome, WhatsApp e consentimento explícito.
+- Aba de contatos no Admin e exportação CSV dos participantes autorizados.
+- Nenhum disparo automático de WhatsApp ou recurso pago.
