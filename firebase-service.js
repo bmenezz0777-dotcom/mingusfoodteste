@@ -1,13 +1,11 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
 import {getAuth,setPersistence,browserLocalPersistence,signInAnonymously,signInWithEmailAndPassword,createUserWithEmailAndPassword,linkWithCredential,EmailAuthProvider,sendPasswordResetEmail,updateProfile,signOut,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,addDoc,updateDoc,deleteDoc,getDoc,getDocFromServer,getDocs,onSnapshot,orderBy,query,writeBatch,waitForPendingWrites,serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
-import {getStorage,ref as storageRef,uploadBytes,getDownloadURL} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-storage.js';
 
 const firebaseConfig={apiKey:'AIzaSyBw0mc9z57cvG3ieJWBwUTjJj4FdR7PWxw',authDomain:'mingosfood-b0ef0.firebaseapp.com',projectId:'mingosfood-b0ef0',storageBucket:'mingosfood-b0ef0.firebasestorage.app',messagingSenderId:'927616413219',appId:'1:927616413219:web:6bf3ff605b733288fa0b96'};
 const ADMIN_UID='HyAvEp5TLfh414rAykVQTwxWjrS2';
 const app=initializeApp(firebaseConfig),auth=getAuth(app);
 const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true,localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
-const storage=getStorage(app);
 const clean=value=>JSON.parse(JSON.stringify(value));
 const status=(state,detail='')=>window.dispatchEvent(new CustomEvent('mingos:backend-status',{detail:{state,detail}}));
 
@@ -29,8 +27,7 @@ async function saveLead({name,phone,consent}){const user=await anonymousUser(),d
 function watchCollection(name,callback,error=console.error){return onSnapshot(collection(db,name),{includeMetadataChanges:true},snapshot=>callback(snapshot.docs.map(item=>({id:item.id,...item.data()}))),error)}
 async function saveDocument(group,id,data){await setDoc(doc(db,group,String(id)),clean(data));await waitForPendingWrites(db);return data}
 async function removeDocument(group,id){await deleteDoc(doc(db,group,String(id)));await waitForPendingWrites(db)}
-async function uploadProductImage(file,productId){if(!file?.type?.startsWith('image/'))throw new Error('Selecione uma imagem válida.');if(file.size>5*1024*1024)throw new Error('A imagem deve ter no máximo 5 MB.');const extension=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'').toLowerCase(),target=storageRef(storage,`products/${String(productId).replace(/[^a-z0-9-]/gi,'-')}-${Date.now()}.${extension}`);await uploadBytes(target,file,{contentType:file.type,cacheControl:'public,max-age=31536000'});return getDownloadURL(target)}
 async function clearOrders(){const snapshot=await getDocs(collection(db,'orders')),finished=snapshot.docs.filter(item=>['completed','rejected','cancelled','expired'].includes(item.data().status));for(let offset=0;offset<finished.length;offset+=450){const batch=writeBatch(db);finished.slice(offset,offset+450).forEach(item=>batch.delete(item.ref));await batch.commit()}}
 function friendlyError(error){const messages={'auth/invalid-credential':'E-mail ou senha incorretos.','auth/operation-not-allowed':'Ative o método de autenticação no Firebase.','auth/unauthorized-domain':'O domínio do GitHub Pages não está autorizado no Firebase.','permission-denied':'As regras do Firestore bloquearam esta operação.','firestore/permission-denied':'As regras do Firestore bloquearam esta operação.','unavailable':'O Firebase está temporariamente indisponível.','mingos/not-confirmed':'O servidor não confirmou o pedido.'};return messages[error?.code]||messages[String(error?.code||'').replace(/^firestore\//,'')]||error?.message||'Falha de conexão com o Firebase.'}
-window.MingosFirebase={ADMIN_UID,auth,db,anonymousUser,customerSignup,customerLogin,resetPassword,watchAuth,adminLogin,signOut:()=>signOut(auth),createOrder,watchOrder,watchOrders,updateOrderStatus,watchMessages,sendMessage,saveLead,watchCollection,saveDocument,removeDocument,uploadProductImage,clearOrders,friendlyError};
+window.MingosFirebase={ADMIN_UID,auth,db,anonymousUser,customerSignup,customerLogin,resetPassword,watchAuth,adminLogin,signOut:()=>signOut(auth),createOrder,watchOrder,watchOrders,updateOrderStatus,watchMessages,sendMessage,saveLead,watchCollection,saveDocument,removeDocument,clearOrders,friendlyError};
 status('ready','Firebase carregado');window.dispatchEvent(new CustomEvent('mingos:firebase-ready'));

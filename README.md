@@ -38,7 +38,7 @@ Produtos, pedidos, funcionamento, bairros, taxas, promoções e histórico são 
 ## Operação
 
 - Produtos podem ser pausados ou reativados pelo painel.
-- Fotos podem ser enviadas diretamente pelo administrador ao Firebase Storage.
+- Fotos são reduzidas no navegador e salvas junto ao produto no Firestore gratuito.
 - Horários, pedido mínimo, prazos, bairros e taxas são configuráveis.
 - O checkout valida disponibilidade, funcionamento, endereço, pagamento e conexão.
 - O painel mostra ticket médio, entrega versus retirada, horários de pico e histórico de caixa.
