@@ -12,9 +12,9 @@
   async function watchOrder(id,callback){const firebase=await waitFirebase();return firebase.watchOrder(id,order=>{const orders=read(ORDER_KEY,[]).filter(item=>item.id!==order.id);saveOrdersLocal([order,...orders]);writeLocal(LAST_KEY,order);callback(order)},error=>console.error('Mingos tracking:',error))}
   async function adminLogin(email,password){return(await waitFirebase()).adminLogin(email,password)}
   async function watchAdminOrders(callback,onError=console.error){const firebase=await waitFirebase();return firebase.watchOrders(orders=>{saveOrdersLocal(orders);callback(orders)},error=>onError(Object.assign(error,{friendlyMessage:firebase.friendlyError(error)})))}
-  async function signup(data){return(await waitFirebase()).customerSignup(data)}
-  async function customerLogin(email,password){return(await waitFirebase()).customerLogin(email,password)}
-  async function resetPassword(email){return(await waitFirebase()).resetPassword(email)}
+  async function signup(data){const firebase=await waitFirebase();try{return await firebase.customerSignup(data)}catch(error){throw Object.assign(error,{message:firebase.friendlyError(error)})}}
+  async function customerLogin(email,password){const firebase=await waitFirebase();try{return await firebase.customerLogin(email,password)}catch(error){throw Object.assign(error,{message:firebase.friendlyError(error)})}}
+  async function resetPassword(email){const firebase=await waitFirebase();try{return await firebase.resetPassword(email)}catch(error){throw Object.assign(error,{message:firebase.friendlyError(error)})}}
   async function watchMessages(orderId,callback){return(await waitFirebase()).watchMessages(orderId,callback)}
   async function sendMessage(orderId,text,role){return(await waitFirebase()).sendMessage(orderId,text,role)}
   window.MingosSync={ORDER_KEY,LAST_KEY,read,waitFirebase,createOrder,updateStatus,watchOrder,adminLogin,signup,customerLogin,resetPassword,watchMessages,sendMessage,watchAdminOrders,findOrder,saveOrders:saveOrdersLocal};
